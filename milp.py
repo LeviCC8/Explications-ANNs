@@ -64,7 +64,7 @@ def codify_network(model, domain_input=None, bounds_input=None):
         else:
             mdl.add_constraints([A[j, :] @ x + b[j] == y[j] for j in range(A.shape[0])])
 
-    return mdl, input_variables, output_variables
+    return mdl
 
 
 if __name__ == '__main__':
