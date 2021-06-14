@@ -43,30 +43,89 @@ def get_miminal_explanation(mdl, network_input, network_output, n_classes):
     return [mdl.get_var_by_name(f'x_{i}') for i in range(len(network_input[0])) if i in indexes_to_keep]
 
 
+def get_domain_and_bounds_inputs(dataframe):
+    domain = []
+    bounds = []
+    for column in dataframe.columns[:-1]:
+        if len(dataframe[column].unique()) == 2:
+            domain.append('B')
+            bounds.append([None, None])
+        elif np.any(dataframe[column].unique().astype(np.int64) != dataframe[column].unique().astype(np.float64)):
+            domain.append('C')
+            bounds.append([0, 1])
+        else:
+            domain.append('I')
+            bound_inf = int(dataframe[column].min())
+            bound_sup = int(dataframe[column].max())
+            bounds.append([bound_inf, bound_sup])
+    return domain, bounds
+
+
 if __name__ == '__main__':
-    model_path = 'datasets\\voting\\model_voting.h5'
+    dir_path = 'heart-statlog'
+    n_classes = 2
+
+    data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
+    data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
+
+    data = data_train.append(data_test)
+
+    model_path = f'datasets\\{dir_path}\\model_{dir_path}.h5'
     model = tf.keras.models.load_model(model_path)
-    mdl = codify_network(model, domain_input='I', bounds_input=[0, 2])
-
-    data_test = pd.read_csv('datasets\\voting\\test.csv').to_numpy()
-    data_train = pd.read_csv('datasets\\voting\\train.csv').to_numpy()
-
-    data = np.append(data_test, data_train, axis=0)
+    domain, bounds = get_domain_and_bounds_inputs(data)
+    print('Domain: ', domain)
+    print('Bounds: ', bounds)
+    mdl = codify_network(model, domain_input=domain, bounds_input=bounds)
 
     time_list = []
     len_list = []
+    data = data.to_numpy()
     for i in range(data.shape[0]):
         print(i)
-        network_input = data[i, 1:]
+        network_input = data[i, :-1]
 
-        network_input = tf.reshape(tf.constant(network_input), (1, 16))
+        network_input = tf.reshape(tf.constant(network_input), (1, -1))
         network_output = model.predict(tf.constant(network_input))[0]
         network_output = tf.argmax(network_output)
 
         start = time()
-        explanation = get_miminal_explanation(mdl, network_input, network_output, n_classes=2)
+        explanation = get_miminal_explanation(mdl, network_input, network_output, n_classes=n_classes)
         time_list.append(time() - start)
 
         len_list.append(len(explanation))
     print(f'Explication sizes:\nm: {min(len_list)}\na: {mean(len_list)}\nM: {max(len_list)}')
     print(f'Time:\nm: {min(time_list)}\na: {mean(time_list)}\nM: {max(time_list)}')
+
+    '''
+    ### REDE 1 ###
+    
+    Explication sizes:
+    m: 4
+    a: 8.149425287356323
+    M: 14
+    Time:
+    m: 0.28621721267700195
+    a: 0.3712949314336667
+    M: 0.5439116954803467
+
+    ### REDE 2 ###
+    
+    # COM RESTRIÇÕES #
+    m: 2
+    a: 5.35632183908046
+    M: 9
+    Time:
+    m: 0.3469691276550293
+    a: 0.42439682785121874
+    M: 0.8552234172821045
+    
+    # SEM RESTRIÇÕES #
+    Explication sizes:
+    m: 6
+    a: 7.266666666666667
+    M: 13
+    Time:
+    m: 0.35140061378479004
+    a: 0.40121979110542383
+    M: 1.2723205089569092
+    '''
