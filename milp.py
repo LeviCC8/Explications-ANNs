@@ -75,7 +75,7 @@ def codify_network_tjeng(model, dataframe):
 
     domain_input, bounds_input = get_domain_and_bounds_inputs(dataframe)
     bounds_input = np.array(bounds_input)
-    final_bounds = []
+    output_bounds = []
 
     input_variables = mdl.continuous_var_list(num_features, lb=bounds_input[:, 0], ub=bounds_input[:, 1], name='x')
     intermediate_variables = []
@@ -112,7 +112,7 @@ def codify_network_tjeng(model, dataframe):
             mdl.solve()
             lb = mdl.solution.get_objective_value()
             mdl.remove_objective()
-            print(f'lb: {lb}, ub: {ub}')
+
             s[j].set_ub(ub)
             s[j].set_lb(lb)
 
@@ -121,7 +121,7 @@ def codify_network_tjeng(model, dataframe):
                 mdl.add_constraint(y[j] >= s[j])
                 mdl.add_constraint(y[j] <= ub * a[j])
             else:
-                final_bounds.append([lb, ub])
+                output_bounds.append([lb, ub])
 
     # Set domain of variables 'a'
     for i in decision_variables:
@@ -137,7 +137,7 @@ def codify_network_tjeng(model, dataframe):
         elif domain_input[i] == 'C':
             x.set_vartype('Continuous')
 
-    return mdl, final_bounds
+    return mdl, output_bounds
 
 
 def get_domain_and_bounds_inputs(dataframe):
@@ -157,11 +157,6 @@ def get_domain_and_bounds_inputs(dataframe):
             bounds.append([bound_inf, bound_sup])
     return domain, bounds
 
-
-#  PQ A MAIORIA DOS LBs SÃO 0 E TODOS SÃO MAIORES QUE 0?
-#  MOSTRAR QUE O PROBLEMA ESTÁ NA ÚLTIMA RESTRIÇÃO ADICIONADA RETIRANDO ELA
-#  O PROBLEMA PROVAVELMENTE N É POR IR ADICIONANDO AS RESTRIÇÕES, POIS O PROBLEMA TB ACONTECE NO NEURONIO 1 DA CAMADA 2 (OLHAR SPECT)
-#  HEPATITIS DA CERTO
 
 if __name__ == '__main__':
     path_dir = 'voting'
