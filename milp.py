@@ -5,30 +5,13 @@ import tensorflow as tf
 import pandas as pd
 
 
-def codify_network_fischetti(model, domain_input=None, bounds_input=None):
-
-    if domain_input is None:
-        domain_input = 'C'
-    if bounds_input is None:
-        bounds_input = [None, None]
+def codify_network_fischetti(model, dataframe):
 
     layers = model.layers
 
     mdl = mp.Model()
 
-    num_features = layers[0].get_weights()[0].shape[0]
-
-    if domain_input in ['C', 'I', 'B']:
-        domain_input = [domain_input]*num_features
-
-    if type(bounds_input[0]) != list:
-        bounds_input = [bounds_input]*num_features
-
-    assert len(domain_input) == num_features, \
-        f"The domains list must have length of {num_features}, but {len(domain_input)} received"
-
-    assert len(bounds_input) == num_features, \
-        f"The bounds list must have length of {num_features}, but {len(bounds_input)} received"
+    domain_input, bounds_input = get_domain_and_bounds_inputs(dataframe)
 
     input_variables = []
     for i in range(len(domain_input)):
