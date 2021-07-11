@@ -1,7 +1,7 @@
 import docplex.mp.model as mp
 import numpy as np
 import tensorflow as tf
-from milp import codify_network_fischetti, codify_network_tjeng
+from milp import codify_network
 import pandas as pd
 from time import time
 from statistics import mean
@@ -72,8 +72,8 @@ def get_miminal_explanation(mdl, network_input, network_output, n_classes, metho
 def main():
     dir_path = 'spect'
     n_classes = 2
-    method = 'fischetti'
-    #method = 'tjeng'
+    #method = 'fischetti'
+    method = 'tjeng'
 
     data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
     data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
@@ -83,10 +83,7 @@ def main():
     model_path = f'datasets\\{dir_path}\\model_{dir_path}.h5'
     model = tf.keras.models.load_model(model_path)
 
-    if method == 'tjeng':
-        mdl, output_bounds = codify_network_tjeng(model, data)
-    else:
-        mdl = codify_network_fischetti(model, data)
+    mdl, output_bounds = codify_network(model, data, method, relaxe_constraints=True)
 
     time_list = []
     len_list = []
