@@ -6,6 +6,7 @@ import pandas as pd
 from time import time
 from statistics import mean
 import cProfile
+import pandas as pd
 
 
 def insert_input_output_constraints_fischetti(mdl, output_variables, network_output, binary_variables):
@@ -70,46 +71,89 @@ def get_miminal_explanation(mdl, network_input, network_output, n_classes, metho
 
 
 def main():
-    dir_path = 'spect'
-    n_classes = 2
-    #method = 'fischetti'
-    method = 'tjeng'
+    datasets = [{'dir_path': 'australian', 'n_classes': 2}, {'dir_path': 'auto', 'n_classes': 5},
+                {'dir_path': 'backache', 'n_classes': 2}, {'dir_path': 'breast-cancer', 'n_classes': 2},
+                {'dir_path': 'cleve', 'n_classes': 2}, {'dir_path': 'cleveland', 'n_classes': 5},
+                {'dir_path': 'glass', 'n_classes': 5}, {'dir_path': 'glass2', 'n_classes': 2},
+                {'dir_path': 'heart-statlog', 'n_classes': 2}, {'dir_path': 'hepatitis', 'n_classes': 2},
+                {'dir_path': 'spect', 'n_classes': 2}, {'dir_path': 'voting', 'n_classes': 2}]
 
-    data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
-    data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
+    configurations = [{'method': 'fischetti', 'relaxe_constraints': True},
+                      {'method': 'fischetti', 'relaxe_constraints': False},
+                      {'method': 'tjeng', 'relaxe_constraints': True},
+                      {'method': 'tjeng', 'relaxe_constraints': False}]
 
-    data = data_train.append(data_test)
+    df = {'fischetti': {True: {'size': [], 'milp_time': [], 'build_time': []},
+                        False: {'size': [], 'milp_time': [], 'build_time': []}},
+          'tjeng': {True: {'size': [], 'milp_time': [], 'build_time': []},
+                    False: {'size': [], 'milp_time': [], 'build_time': []}}}
 
-    model_path = f'datasets\\{dir_path}\\model_{dir_path}.h5'
-    model = tf.keras.models.load_model(model_path)
+    for dataset in datasets:
+        dir_path = dataset['dir_path']
+        n_classes = dataset['n_classes']
 
-    mdl, output_bounds = codify_network(model, data, method, relaxe_constraints=True)
+        for config in configurations:
+            print(dataset, config)
 
-    time_list = []
-    len_list = []
-    data = data.to_numpy()
-    for i in range(data.shape[0]):
-        print(i)
-        network_input = data[i, :-1]
+            method = config['method']
+            relaxe_constraints = config['relaxe_constraints']
 
-        network_input = tf.reshape(tf.constant(network_input), (1, -1))
-        network_output = model.predict(tf.constant(network_input))[0]
-        network_output = tf.argmax(network_output)
+            data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
+            data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
 
-        mdl_aux = mdl.clone()
-        start = time()
-        if method == 'tjeng':
-            explanation = get_miminal_explanation(mdl_aux, network_input, network_output,
-                                                  n_classes=n_classes, method='tjeng', output_bounds=output_bounds)
-        else:
-            explanation = get_miminal_explanation(mdl_aux, network_input, network_output, n_classes=n_classes,
-                                                  method='fischetti')
+            data = data_train.append(data_test)
 
-        time_list.append(time() - start)
+            model_path = f'datasets\\{dir_path}\\model_{dir_path}.h5'
+            model = tf.keras.models.load_model(model_path)
 
-        len_list.append(len(explanation))
-    print(f'Explication sizes:\nm: {min(len_list)}\na: {mean(len_list)}\nM: {max(len_list)}')
-    print(f'Time:\nm: {min(time_list)}\na: {mean(time_list)}\nM: {max(time_list)}')
+            codify_network_time = []
+            for _ in range(10):
+                start = time()
+                mdl, output_bounds = codify_network(model, data, method, relaxe_constraints)
+                codify_network_time.append(time() - start)
+
+            time_list = []
+            len_list = []
+            data = data.to_numpy()
+            for i in range(data.shape[0]):
+                print(i)
+                network_input = data[i, :-1]
+
+                network_input = tf.reshape(tf.constant(network_input), (1, -1))
+                network_output = model.predict(tf.constant(network_input))[0]
+                network_output = tf.argmax(network_output)
+
+                mdl_aux = mdl.clone()
+                start = time()
+
+                explanation = get_miminal_explanation(mdl_aux, network_input, network_output,
+                                                      n_classes=n_classes, method=method, output_bounds=output_bounds)
+                time_list.append(time() - start)
+
+                len_list.append(len(explanation))
+
+            df[method][relaxe_constraints]['size'].extend([min(len_list), mean(len_list), max(len_list)])
+            df[method][relaxe_constraints]['milp_time'].extend([min(time_list), mean(time_list), max(time_list)])
+            df[method][relaxe_constraints]['build_time'].extend([min(codify_network_time), mean(codify_network_time), max(codify_network_time)])
+
+    df = {'fischetti_relaxe_size': df['fischetti'][True]['size'],
+          'fischetti_relaxe_time': df['fischetti'][True]['milp_time'],
+          'fischetti_relaxe_build_time': df['fischetti'][True]['build_time'],
+          'fischetti_not_relaxe_size': df['fischetti'][False]['size'],
+          'fischetti_not_relaxe_time':  df['fischetti'][False]['milp_time'],
+          'fischetti_not_relaxe_build_time': df['fischetti'][False]['build_time'],
+          'tjeng_relaxe_size': df['tjeng'][True]['size'],
+          'tjeng_relaxe_time': df['tjeng'][True]['milp_time'],
+          'tjeng_relaxe_build_time': df['tjeng'][True]['build_time'],
+          'tjeng_not_relaxe_size': df['tjeng'][False]['size'],
+          'tjeng_not_relaxe_time': df['tjeng'][False]['milp_time'],
+          'tjeng_not_relaxe_build_time': df['tjeng'][False]['build_time']}
+
+    index_label = []
+    for dataset in datasets:
+        index_label.extend([f"{dataset['dir_path']}_m", f"{dataset['dir_path']}_a", f"{dataset['dir_path']}_M"])
+    df = pd.DataFrame(data=df, index=index_label)
+    df.to_csv('results.csv')
 
 
 if __name__ == '__main__':
