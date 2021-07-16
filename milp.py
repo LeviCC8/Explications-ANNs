@@ -81,10 +81,20 @@ def codify_network_tjeng(mdl, layers, input_variables, auxiliary_variables, inte
             ub = mdl.solution.get_objective_value()
             mdl.remove_objective()
 
+            if ub <= 0 and i != len(layers) - 1:
+                mdl.remove_constraint(f'c_{i}_{j}')
+                mdl.add_constraint(y[j] == 0, ctname=f'c_{i}_{j}')
+                continue
+
             mdl.minimize(s[j])
             mdl.solve()
             lb = mdl.solution.get_objective_value()
             mdl.remove_objective()
+
+            if lb >= 0 and i != len(layers) - 1:
+                mdl.remove_constraint(f'c_{i}_{j}')
+                mdl.add_constraint(A[j, :] @ x + b[j] == y[j], ctname=f'c_{i}_{j}')
+                continue
 
             s[j].set_ub(ub)
             s[j].set_lb(lb)
@@ -171,15 +181,20 @@ def get_domain_and_bounds_inputs(dataframe):
     for column in dataframe.columns[:-1]:
         if len(dataframe[column].unique()) == 2:
             domain.append('B')
-            bounds.append([0, 1])
+            bound_inf = dataframe[column].min()
+            bound_sup = dataframe[column].max()
+            bounds.append([bound_inf, bound_sup])
         elif np.any(dataframe[column].unique().astype(np.int64) != dataframe[column].unique().astype(np.float64)):
             domain.append('C')
-            bounds.append([0, 1])
+            bound_inf = dataframe[column].min()
+            bound_sup = dataframe[column].max()
+            bounds.append([bound_inf, bound_sup])
         else:
             domain.append('I')
-            bound_inf = int(dataframe[column].min())
-            bound_sup = int(dataframe[column].max())
+            bound_inf = dataframe[column].min()
+            bound_sup = dataframe[column].max()
             bounds.append([bound_inf, bound_sup])
+
     return domain, bounds
 
 
