@@ -59,7 +59,7 @@ def codify_network_fischetti(mdl, layers, input_variables, auxiliary_variables, 
     return mdl, output_bounds
 
 
-def codify_network_tjeng(mdl, layers, input_variables, auxiliary_variables, intermediate_variables, decision_variables, output_variables):
+def codify_network_tjeng(mdl, layers, input_variables, intermediate_variables, decision_variables, output_variables):
     output_bounds = []
 
     for i in range(len(layers)):
@@ -67,43 +67,37 @@ def codify_network_tjeng(mdl, layers, input_variables, auxiliary_variables, inte
         b = layers[i].bias.numpy()
         x = input_variables if i == 0 else intermediate_variables[i-1]
         if i != len(layers) - 1:
-            s = auxiliary_variables[i]
             a = decision_variables[i]
             y = intermediate_variables[i]
         else:
-            s = output_variables
+            y = output_variables
 
         for j in range(A.shape[0]):
 
-            mdl.add_constraint(A[j, :] @ x + b[j] == s[j], ctname=f'c_{i}_{j}')
-            mdl.maximize(s[j])
+            mdl.maximize(A[j, :] @ x + b[j])
             mdl.solve()
             ub = mdl.solution.get_objective_value()
             mdl.remove_objective()
 
             if ub <= 0 and i != len(layers) - 1:
-                mdl.remove_constraint(f'c_{i}_{j}')
                 mdl.add_constraint(y[j] == 0, ctname=f'c_{i}_{j}')
                 continue
 
-            mdl.minimize(s[j])
+            mdl.minimize(A[j, :] @ x + b[j])
             mdl.solve()
             lb = mdl.solution.get_objective_value()
             mdl.remove_objective()
 
             if lb >= 0 and i != len(layers) - 1:
-                mdl.remove_constraint(f'c_{i}_{j}')
                 mdl.add_constraint(A[j, :] @ x + b[j] == y[j], ctname=f'c_{i}_{j}')
                 continue
 
-            s[j].set_ub(ub)
-            s[j].set_lb(lb)
-
             if i != len(layers) - 1:
-                mdl.add_constraint(y[j] <= s[j] - lb * (1 - a[j]))
-                mdl.add_constraint(y[j] >= s[j])
+                mdl.add_constraint(y[j] <= A[j, :] @ x + b[j] - lb * (1 - a[j]))
+                mdl.add_constraint(y[j] >= A[j, :] @ x + b[j])
                 mdl.add_constraint(y[j] <= ub * a[j])
             else:
+                mdl.add_constraint(A[j, :] @ x + b[j] == y[j])
                 output_bounds.append([lb, ub])
 
     return mdl, output_bounds
@@ -138,9 +132,7 @@ def codify_network(model, dataframe, method, relaxe_constraints):
         weights = layers[i].get_weights()[0]
         intermediate_variables.append(mdl.continuous_var_list(weights.shape[1], lb=0, name='y', key_format=f"_{i}_%s"))
 
-        if method == 'tjeng':
-            auxiliary_variables.append(mdl.continuous_var_list(weights.shape[1], lb=-infinity, name='s', key_format=f"_{i}_%s"))
-        else:
+        if method == 'fischetti':
             auxiliary_variables.append(mdl.continuous_var_list(weights.shape[1], lb=0, name='s', key_format=f"_{i}_%s"))
 
         if relaxe_constraints and method == 'tjeng':
@@ -151,7 +143,7 @@ def codify_network(model, dataframe, method, relaxe_constraints):
     output_variables = mdl.continuous_var_list(layers[-1].get_weights()[0].shape[1], lb=-infinity, name='o')
 
     if method == 'tjeng':
-        mdl, output_bounds = codify_network_tjeng(mdl, layers, input_variables, auxiliary_variables,
+        mdl, output_bounds = codify_network_tjeng(mdl, layers, input_variables,
                                                   intermediate_variables, decision_variables, output_variables)
     else:
         mdl, output_bounds = codify_network_fischetti(mdl, layers, input_variables, auxiliary_variables,
