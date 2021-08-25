@@ -75,15 +75,16 @@ def get_miminal_explanation(mdl, network_input, network_output, n_classes, metho
 
 def main():
     datasets = [#{'dir_path': 'australian', 'n_classes': 2}, {'dir_path': 'auto', 'n_classes': 5},
-                #{'dir_path': 'backache', 'n_classes': 2}, {'dir_path': 'breast-cancer', 'n_classes': 2},
-                #{'dir_path': 'cleve', 'n_classes': 2}, {'dir_path': 'cleveland', 'n_classes': 5},
-                {'dir_path': 'glass', 'n_classes': 5},]
-                #{'dir_path': 'glass2', 'n_classes': 2},
+                #{'dir_path': 'backache', 'n_classes': 2},
+                {'dir_path': 'breast-cancer', 'n_classes': 2},
+                {'dir_path': 'cleve', 'n_classes': 2}, {'dir_path': 'cleveland', 'n_classes': 5},
+                #{'dir_path': 'glass', 'n_classes': 5}, {'dir_path': 'glass2', 'n_classes': 2},
                 #{'dir_path': 'heart-statlog', 'n_classes': 2}, {'dir_path': 'hepatitis', 'n_classes': 2},
-                #{'dir_path': 'spect', 'n_classes': 2}, {'dir_path': 'voting', 'n_classes': 2}]
+                #{'dir_path': 'spect', 'n_classes': 2}, {'dir_path': 'voting', 'n_classes': 2}
+                ]
 
     configurations = [#{'method': 'fischetti', 'relaxe_constraints': True},
-                      #{'method': 'fischetti', 'relaxe_constraints': False},
+                      {'method': 'fischetti', 'relaxe_constraints': False},
                       #{'method': 'tjeng', 'relaxe_constraints': True},
                       {'method': 'tjeng', 'relaxe_constraints': False}]
 
@@ -121,7 +122,8 @@ def main():
             len_list = []
             data = data.to_numpy()
             for i in range(data.shape[0]):
-                print(i)
+                if i % 50 == 0:
+                    print(i)
                 network_input = data[i, :-1]
 
                 network_input = tf.reshape(tf.constant(network_input), (1, -1))
@@ -145,17 +147,17 @@ def main():
             print(f'Explication sizes:\nm: {min(len_list)}\na: {mean(len_list)}\nM: {max(len_list)}')
             print(f'Time:\nm: {min(time_list)}\na: {mean(time_list)}\nM: {max(time_list)}')
             print(f'Build Time:\nm: {min(codify_network_time)}\na: {mean(codify_network_time)}\nM: {max(codify_network_time)}')
-            'a'+1
 
-    df = {'fischetti_relaxe_size': df['fischetti'][True]['size'],
-          'fischetti_relaxe_time': df['fischetti'][True]['milp_time'],
-          'fischetti_relaxe_build_time': df['fischetti'][True]['build_time'],
+
+    df = {#'fischetti_relaxe_size': df['fischetti'][True]['size'],
+          #'fischetti_relaxe_time': df['fischetti'][True]['milp_time'],
+          #'fischetti_relaxe_build_time': df['fischetti'][True]['build_time'],
           'fischetti_not_relaxe_size': df['fischetti'][False]['size'],
           'fischetti_not_relaxe_time':  df['fischetti'][False]['milp_time'],
           'fischetti_not_relaxe_build_time': df['fischetti'][False]['build_time'],
-          'tjeng_relaxe_size': df['tjeng'][True]['size'],
-          'tjeng_relaxe_time': df['tjeng'][True]['milp_time'],
-          'tjeng_relaxe_build_time': df['tjeng'][True]['build_time'],
+          #'tjeng_relaxe_size': df['tjeng'][True]['size'],
+          #'tjeng_relaxe_time': df['tjeng'][True]['milp_time'],
+          #'tjeng_relaxe_build_time': df['tjeng'][True]['build_time'],
           'tjeng_not_relaxe_size': df['tjeng'][False]['size'],
           'tjeng_not_relaxe_time': df['tjeng'][False]['milp_time'],
           'tjeng_not_relaxe_build_time': df['tjeng'][False]['build_time']}
