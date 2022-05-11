@@ -80,6 +80,7 @@ def codify_network_tjeng(mdl, layers, input_variables, intermediate_variables, d
             mdl.remove_objective()
 
             if ub <= 0 and i != len(layers) - 1:
+                print('ENTROU, o ub é negativo, logo y = 0')
                 mdl.add_constraint(y[j] == 0, ctname=f'c_{i}_{j}')
                 continue
 
@@ -89,6 +90,7 @@ def codify_network_tjeng(mdl, layers, input_variables, intermediate_variables, d
             mdl.remove_objective()
 
             if lb >= 0 and i != len(layers) - 1:
+                print('ENTROU, o lb >= 0, logo y = Wx + b')
                 mdl.add_constraint(A[j, :] @ x + b[j] == y[j], ctname=f'c_{i}_{j}')
                 continue
 

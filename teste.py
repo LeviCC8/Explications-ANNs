@@ -34,14 +34,21 @@ def insert_output_constraints_tjeng(mdl, output_variables, network_output, binar
     return mdl
 
 
-def get_miminal_explanation(mdl, network_input, network_output, n_classes, method, output_bounds=None):
+def get_miminal_explanation(mdl, network_input, network_output, n_classes, method, output_bounds=None, initial_explanation=None):
     assert not (method == 'tjeng' and output_bounds == None), 'If the method tjeng is chosen, output_bounds must be passed.'
 
-    input_variables = [mdl.get_var_by_name(f'x_{i}') for i in range(len(network_input[0]))]
     output_variables = [mdl.get_var_by_name(f'o_{i}') for i in range(n_classes)]
-    input_constraints = mdl.add_constraints([input_variables[i] == feature.numpy() for i, feature in enumerate(network_input[0])], names='input')
-    binary_variables = mdl.binary_var_list(n_classes - 1, name='b')
 
+    if initial_explanation is None:
+        input_constraints = mdl.add_constraints(
+            [mdl.get_var_by_name(f'x_{i}') == feature.numpy() for i, feature in enumerate(network_input[0])],
+            names='input')
+    else:
+        input_constraints = mdl.add_constraints(
+            [mdl.get_var_by_name(f'x_{i}') == network_input[0][i].numpy() for i in initial_explanation],
+            names='input')
+
+    binary_variables = mdl.binary_var_list(n_classes - 1, name='b')
     mdl.add_constraint(mdl.sum(binary_variables) >= 1)
 
     if method == 'tjeng':
@@ -51,32 +58,33 @@ def get_miminal_explanation(mdl, network_input, network_output, n_classes, metho
         mdl = insert_output_constraints_fischetti(mdl, output_variables, network_output,
                                                                    binary_variables)
 
-    for i in range(len(network_input[0])):
-        mdl.remove_constraint(input_constraints[i])
+    for constraint in input_constraints:
+        mdl.remove_constraint(constraint)
 
         mdl.solve(log_output=False)
         if mdl.solution is not None:
-            mdl.add_constraint(input_constraints[i])
+            mdl.add_constraint(constraint)
 
     return mdl.find_matching_linear_constraints('input')
 
 
 def main():
-    datasets = [{'dir_path': 'australian', 'n_classes': 2},
-                {'dir_path': 'auto', 'n_classes': 5},
-                {'dir_path': 'backache', 'n_classes': 2},
-                {'dir_path': 'breast-cancer', 'n_classes': 2},
-                {'dir_path': 'cleve', 'n_classes': 2},
-                {'dir_path': 'cleveland', 'n_classes': 5},
-                {'dir_path': 'glass', 'n_classes': 5}, {'dir_path': 'glass2', 'n_classes': 2},
-                {'dir_path': 'heart-statlog', 'n_classes': 2}, {'dir_path': 'hepatitis', 'n_classes': 2},
-                {'dir_path': 'spect', 'n_classes': 2},
-                {'dir_path': 'voting', 'n_classes': 2}
+    datasets = [#{'dir_path': 'australian', 'n_classes': 2},
+                #{'dir_path': 'auto', 'n_classes': 5},
+                #{'dir_path': 'backache', 'n_classes': 2},
+                #{'dir_path': 'breast-cancer', 'n_classes': 2},
+                #{'dir_path': 'cleve', 'n_classes': 2},
+                #{'dir_path': 'cleveland', 'n_classes': 5},
+                #{'dir_path': 'glass', 'n_classes': 5},
+                {'dir_path': 'glass2', 'n_classes': 2},
+                #{'dir_path': 'heart-statlog', 'n_classes': 2}, {'dir_path': 'hepatitis', 'n_classes': 2},
+                #{'dir_path': 'spect', 'n_classes': 2},
+                #{'dir_path': 'voting', 'n_classes': 2}
                 ]
 
-    configurations = [{'method': 'fischetti', 'relaxe_constraints': True},
+    configurations = [#{'method': 'fischetti', 'relaxe_constraints': True},
                       {'method': 'fischetti', 'relaxe_constraints': False},
-                      {'method': 'tjeng', 'relaxe_constraints': True},
+                      #{'method': 'tjeng', 'relaxe_constraints': True},
                       {'method': 'tjeng', 'relaxe_constraints': False}]
 
     df = {'fischetti': {True: {'size': [], 'milp_time': [], 'build_time': []},
@@ -96,10 +104,9 @@ def main():
 
             data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
             data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
-
             data = data_train.append(data_test)
 
-            model_path = f'datasets\\{dir_path}\\model_2layers_{dir_path}.h5'
+            model_path = f'datasets\\{dir_path}\\model_4layers_20neurons_{dir_path}.h5'
             model = tf.keras.models.load_model(model_path)
 
             codify_network_time = []
@@ -111,7 +118,8 @@ def main():
 
             time_list = []
             len_list = []
-            data = data.to_numpy()
+            # data = data.to_numpy()
+            data = data_test.to_numpy()
             for i in range(data.shape[0]):
                 #if i % 50 == 0:
                 print(i)
@@ -138,7 +146,7 @@ def main():
             print(f'Explication sizes:\nm: {min(len_list)}\na: {mean(len_list)} +- {stdev(len_list)}\nM: {max(len_list)}')
             print(f'Time:\nm: {min(time_list)}\na: {mean(time_list)} +- {stdev(time_list)}\nM: {max(time_list)}')
             print(f'Build Time:\nm: {min(codify_network_time)}\na: {mean(codify_network_time)} +- {stdev(codify_network_time)}\nM: {max(codify_network_time)}')
-
+    'a'+1
     df = {'fischetti_relaxe_size': df['fischetti'][True]['size'],
           'fischetti_relaxe_time': df['fischetti'][True]['milp_time'],
           'fischetti_relaxe_build_time': df['fischetti'][True]['build_time'],
@@ -156,7 +164,7 @@ def main():
     for dataset in datasets:
         index_label.extend([f"{dataset['dir_path']}_m", f"{dataset['dir_path']}_a", f"{dataset['dir_path']}_M"])
     df = pd.DataFrame(data=df, index=index_label)
-    df.to_csv('results2.csv')
+    df.to_csv('results.csv')
 
 
 if __name__ == '__main__':
