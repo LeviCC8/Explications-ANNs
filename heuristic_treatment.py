@@ -1,12 +1,9 @@
-import docplex.mp.model as mp
 from anchor import anchor_tabular
 from lime import lime_tabular
 import shap
 from teste import insert_output_constraints_tjeng, get_miminal_explanation
 from milp import codify_network
 import tensorflow as tf
-import pandas as pd
-from statistics import mean, stdev
 import numpy as np
 from time import time
 import pandas as pd
@@ -148,28 +145,41 @@ def set_kernel_width(mdl, network_input, explainer, features):
 
 
 if __name__ == '__main__':
-    dir_path = 'glass2'
-    feature_names = ['Refractive Index', 'Sodium', 'Magnesium', 'Aluminum', 'Silicon', 'Potassium', 'Calcium', 'Barium',
-                     'Iron']
-    features_kernel = list(range(len(feature_names)))
-    class_names = [0, 1]
-    categorical_names = {}
+
     local_approach = False
 
-    # dir_path = 'cleveland'
-    # features_kernel = []  # indexes
-    # feature_names = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
+    # dir_path = 'DryBean'
+    # class_names = [0, 1, 2, 3, 4, 5, 6]
+    # features_kernel = list(range(16))
+
+    # dir_path = 'glass'
     # class_names = [0, 1, 2, 3, 4]
-    # categorical_names = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
-    # categorical_names = {k: 'abcdefghijklmnopqrs' for k, v in dict(enumerate(feature_names)).items() if v in categorical_names}
+    # features_kernel = list(range(9))
 
-    model_path = f'datasets\\{dir_path}\\model_2layers_30neurons_{dir_path}.h5'
-    model = tf.keras.models.load_model(model_path)
+    # dir_path = 'glass2'
+    # class_names = [0, 1]
+    # features_kernel = list(range(9))
 
-    data_test = pd.read_csv(f'datasets\\{dir_path}\\test.csv')
-    data_train = pd.read_csv(f'datasets\\{dir_path}\\train.csv')
+    dir_path = 'raisin'  # UMA VEZ: ENTROU, o lb >= 0, logo y = Wx + b
+    class_names = [0, 1]
+    features_kernel = list(range(7))
+
+    # dir_path = 'rice'
+    # class_names = [0, 1]
+    # features_kernel = list(range(7))
+
+    data_test = pd.read_csv(f'datasets_heuristic\\{dir_path}\\test.csv')
+    data_train = pd.read_csv(f'datasets_heuristic\\{dir_path}\\train.csv')
     df_data = data_train.append(data_test)
     data = df_data.to_numpy()
+
+    feature_names = list(df_data.columns)[:-1]
+
+    categorical_names = [f for i, f in enumerate(feature_names) if i not in features_kernel]
+    categorical_names = {k: 'abcdefghijklmnopqrs' for k, v in dict(enumerate(feature_names)).items() if v in categorical_names}
+
+    model_path = f'datasets_heuristic\\{dir_path}\\model_3layers_20neurons_{dir_path}.h5'
+    model = tf.keras.models.load_model(model_path)
 
     mdl, output_bounds = codify_network(model, df_data, method='tjeng', relaxe_constraints=False)
     explainer = get_lime_explainer(class_names, feature_names, data[:, :-1], categorical_names)
@@ -188,8 +198,7 @@ if __name__ == '__main__':
 
     for i in range(data.shape[0]):
         print(i)
-        if i == 10:
-            break
+
         network_input = data[i, :-1]
         network_input = np.array(tf.reshape(tf.constant(network_input), (1, -1)))
         predicted_class = np.argmax(model(network_input)[0])
@@ -203,6 +212,17 @@ if __name__ == '__main__':
         time_abductive.append(time()-start)
         n_features = len(explanation)
         len_abductive.append(n_features)
+
+        if n_features == 0:
+            time_heuristic.append(0)
+            len_heuristic.append(0)
+            valid_time.append(0)
+            repair_time.append(0)
+            repair2_time.append(0)
+            len_list.append(0)
+            len_list2.append(0)
+            refine_time.append(0)
+            continue
 
         start = time()
         heuristic_explanation = get_lime_explanation(network_input, model, explainer, n_features, class_names, feature_names)
@@ -236,9 +256,9 @@ if __name__ == '__main__':
             len_list.append(len(new_explanation))
             len_list2.append(len(new_explanation))
 
-    df = {'valid_time': valid_time, 'repair_time': repair_time, 'repair2_time': repair_time, 'refine_time': refine_time,
+    df = {'valid_time': valid_time, 'repair_time': repair_time, 'repair2_time': repair2_time, 'refine_time': refine_time,
     'len_list': len_list, 'len_list2': len_list2, 'time_abductive': time_abductive, 'len_abductive': len_abductive,
     'time_heuristic': time_heuristic, 'len_heuristic': len_heuristic}
 
     df = pd.DataFrame(data=df)
-    df.to_csv(f"heuristic_results\\{dir_path}\\results_{'local' if local_approach else 'global'}.csv")
+    df.to_csv(f"heuristic_results\\{dir_path}\\results_{'local' if local_approach else 'global'}.csv", index=False)
