@@ -146,11 +146,11 @@ def set_kernel_width(mdl, network_input, explainer, features):
 
 if __name__ == '__main__':
 
-    local_approach = False
+    local_approach = True
 
-    # dir_path = 'DryBean'
-    # class_names = [0, 1, 2, 3, 4, 5, 6]
-    # features_kernel = list(range(16))
+    dir_path = 'DryBean'
+    class_names = [0, 1, 2, 3, 4, 5, 6]
+    features_kernel = list(range(16))
 
     # dir_path = 'glass'
     # class_names = [0, 1, 2, 3, 4]
@@ -160,9 +160,9 @@ if __name__ == '__main__':
     # class_names = [0, 1]
     # features_kernel = list(range(9))
 
-    dir_path = 'raisin'  # UMA VEZ: ENTROU, o lb >= 0, logo y = Wx + b
-    class_names = [0, 1]
-    features_kernel = list(range(7))
+    # dir_path = 'raisin'  # UMA VEZ: ENTROU, o lb >= 0, logo y = Wx + b
+    # class_names = [0, 1]
+    # features_kernel = list(range(7))
 
     # dir_path = 'rice'
     # class_names = [0, 1]
@@ -172,6 +172,9 @@ if __name__ == '__main__':
     data_train = pd.read_csv(f'datasets_heuristic\\{dir_path}\\train.csv')
     df_data = data_train.append(data_test)
     data = df_data.to_numpy()
+
+    rng = np.random.default_rng(seed=42)
+    data = rng.choice(data, 150, axis=0, replace=False, shuffle=False)
 
     feature_names = list(df_data.columns)[:-1]
 
